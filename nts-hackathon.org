@@ -210,6 +210,8 @@ http://gontpd.org
 18:04 <Martin___> here is the certificate for my server:
                   http://nts1-e.ostfalia.de/homePi/CLIENT/rootCaBundle.pem
 
+(omni) sha256: 97290c72ff74ed6bacfd4b88e374fdd78d6e8489e15a9b1471c93a6ad760534a
+
 22:14 <Martin___> nts1-e.ostfalia.de / 141.41.241.68 --> TLS 1.2
 22:15 <Martin___> nts2-e.ostfalia.de / 141.41.241.69  --> TLS 1.2
                   and TLS1.3
