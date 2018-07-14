@@ -7,7 +7,6 @@ import (
 	"encoding/binary"
 	"flag"
 	"fmt"
-	"log"
 
 	"github.com/bifurcation/mint"
 )
@@ -21,77 +20,77 @@ func setBit(n uint16, pos uint) uint16 {
 	return n
 }
 
-type nextproto_ntske struct {
-	Rectype uint16
-	Bodylen uint16
-	Body    []uint16
-}
+// type nextproto_ntske struct {
+// 	Rectype uint16
+// 	Bodylen uint16
+// 	Body    []uint16
+// }
 
-func nextprotoRec() *nextproto_ntske {
-	rec := new(nextproto_ntske)
-	rec.Rectype = 1
-	rec.Rectype = setBit(rec.Rectype, 15)
-	rec.Body = []uint16{0}
-	rec.Bodylen = 2
-	return rec
-}
+// func nextprotoRec() *nextproto_ntske {
+// 	rec := new(nextproto_ntske)
+// 	rec.Rectype = 1
+// 	rec.Rectype = setBit(rec.Rectype, 15)
+// 	rec.Body = []uint16{0}
+// 	rec.Bodylen = 2
+// 	return rec
+// }
 
-type aead_ntske struct {
-	Rectype uint16
-	Bodylen uint16
-	Body    []uint16
-}
+// type aead_ntske struct {
+// 	Rectype uint16
+// 	Bodylen uint16
+// 	Body    []uint16
+// }
 
-func aeadRec() *aead_ntske {
-	rec := new(aead_ntske)
-	rec.Rectype = 4
-	rec.Rectype = setBit(rec.Rectype, 15)
-	rec.Body = []uint16{15}
-	rec.Bodylen = 2
-	return rec
-}
+// func aeadRec() *aead_ntske {
+// 	rec := new(aead_ntske)
+// 	rec.Rectype = 4
+// 	rec.Rectype = setBit(rec.Rectype, 15)
+// 	rec.Body = []uint16{15}
+// 	rec.Bodylen = 2
+// 	return rec
+// }
 
-type server_ntske struct {
-	Rectype uint16
-	Bodylen uint16
-	Body    [][16]byte
-}
+// type server_ntske struct {
+// 	Rectype uint16
+// 	Bodylen uint16
+// 	Body    [][16]byte
+// }
 
-func serverRec() *server_ntske {
-	rec := new(server_ntske)
-	rec.Rectype = 6
-	rec.Rectype = setBit(rec.Rectype, 15)
-	rec.Body = [][16]byte{{1}}
-	rec.Bodylen = 2
-	return rec
-}
+// func serverRec() *server_ntske {
+// 	rec := new(server_ntske)
+// 	rec.Rectype = 6
+// 	rec.Rectype = setBit(rec.Rectype, 15)
+// 	rec.Body = [][16]byte{{1}}
+// 	rec.Bodylen = 2
+// 	return rec
+// }
 
-type end_ntske struct {
-	Rectype uint16
-	Bodylen uint16
-}
+// type end_ntske struct {
+// 	Rectype uint16
+// 	Bodylen uint16
+// }
 
-func endRec() *end_ntske {
-	rec := new(end_ntske)
-	rec.Rectype = 0
-	rec.Rectype = setBit(rec.Rectype, 15)
-	rec.Bodylen = 0
-	return rec
-}
+// func endRec() *end_ntske {
+// 	rec := new(end_ntske)
+// 	rec.Rectype = 0
+// 	rec.Rectype = setBit(rec.Rectype, 15)
+// 	rec.Bodylen = 0
+// 	return rec
+// }
 
-type cookie_ntske struct {
-	Rectype uint16
-	Bodylen uint16
-	Body    []uint32
-}
+// type cookie_ntske struct {
+// 	Rectype uint16
+// 	Bodylen uint16
+// 	Body    []uint32
+// }
 
-func cookieRec() *cookie_ntske {
-	rec := new(cookie_ntske)
-	rec.Rectype = 5
-	rec.Body = []uint32{4711}
-	rec.Bodylen = 4
-	return rec
-}
+// func cookieRec() *cookie_ntske {
+// 	rec := new(cookie_ntske)
+// 	rec.Rectype = 5
+// 	rec.Body = []uint32{4711}
+// 	rec.Bodylen = 4
+// 	return rec
+// }
 
 func main() {
 	alpn := "ntske/1"
@@ -122,24 +121,26 @@ func main() {
 		panic("server not doing ntske/1")
 	}
 
-	buf := new(bytes.Buffer)
+	msg := new(bytes.Buffer)
 
-	rec := nextprotoRec()
-	err = binary.Write(buf, binary.BigEndian, rec)
-	if err != nil {
-		log.Fatal(err)
-	}
-	rec2 := aeadRec()
-	err = binary.Write(buf, binary.BigEndian, rec2)
-	if err != nil {
-		log.Fatal("Couldn't binary write 2")
-	}
-	rec3 := endRec()
-	err = binary.Write(buf, binary.BigEndian, rec3)
-	if err != nil {
-		log.Fatal("Couldn't binary write 3")
-	}
-	fmt.Printf("%v\n", buf)
+	var rec []uint16 // rectype, bodylen, body
+	// nextproto
+	rec = []uint16{1, 2, 0}
+	rec[0] = setBit(rec[0], 15)
+	err = binary.Write(msg, binary.BigEndian, rec)
+
+	// aead
+	rec = []uint16{4, 2, 15} // 15 is the cipher suite
+	rec[0] = setBit(rec[0], 15)
+	err = binary.Write(msg, binary.BigEndian, rec)
+
+	// end of message
+	rec = []uint16{0, 0}
+	rec[0] = setBit(rec[0], 15)
+	err = binary.Write(msg, binary.BigEndian, rec)
+
+	fmt.Printf("% x\n", msg)
+	conn.Write(msg.Bytes())
 
 	// 4.2. in https://tools.ietf.org/html/draft-dansarie-nts-00
 	label := "EXPORTER-network-time-security/1"
@@ -156,7 +157,16 @@ func main() {
 	if s2c_key, err = conn.ComputeExporter(label, s2c_context, keyLength); err != nil {
 		panic("bork")
 	}
-
 	fmt.Printf("c2s: %v\n", c2s_key)
 	fmt.Printf("s2c: %v\n", s2c_key)
+
+	//
+	response := ""
+	buffer := make([]byte, 1024)
+	for err == nil {
+		_, err = conn.Read(buffer)
+		response += string(buffer)
+	}
+	fmt.Printf("we got: % x\n", response)
+
 }
