@@ -209,6 +209,11 @@ http://gontpd.org
 18:02 <Martin___> TLS is 443 TCP
 18:04 <Martin___> here is the certificate for my server:
                   http://nts1-e.ostfalia.de/homePi/CLIENT/rootCaBundle.pem
+
+22:14 <Martin___> nts1-e.ostfalia.de / 141.41.241.68 --> TLS 1.2
+22:15 <Martin___> nts2-e.ostfalia.de / 141.41.241.69  --> TLS 1.2
+                  and TLS1.3
+
 ** NTS-KE
 
 github.com/lunixbochs/struc
@@ -258,7 +263,7 @@ Server:
 
   - C : may be set.
   - record type 4.
-  - 15
+  - 15 unsigned 16-bit integers 
 
 what would the client like to use?
  server: what I choose to use.
@@ -288,3 +293,22 @@ should be sent by the server as a reply
 
 servers should send at least one cookie record.
 
+bytes.Buffer
+
+  Write()
+
+** TLS too old
+
+Tried running mint against
+
+  https://tls13.crypto.mozilla.org/
+
+About mint:
+
+22:30 <Martin___> it supports 1.3 (draft 22)
+22:30 <Martin___> openssl supports draft 26-28
+22:31 <Martin___> but tls 1.2 should work
+
+Try using the OpenSSL bindings instead?
+
+https://github.com/spacemonkeygo/openssl
