@@ -41,11 +41,36 @@ Gå på den istället?
 
 ** Standards
 
-RFC 5905 
+[[https://tools.ietf.org/html/rfc5905][RFC 5905]] - Network Time Protocol Version 4: Protocol and Algorithms Specification
 
-https://tools.ietf.org/html/rfc5905
+[[https://tools.ietf.org/html/rfc5905#section-7.4][RFC 5905]] - section 7.4 - The Kiss-o'-Death Packet
 
-SNTP? Chapter 14.
+[[https://tools.ietf.org/html/rfc4330][RFC 4330]] - Simple Network Time Protocol (SNTP) Version 4 for IPv4, IPv6 and OSI
+
+[[https://tools.ietf.org/html/rfc7822][RFC 7822]] - Network Time Protocol Version 4 (NTPv4) Extension Fields
+
+[[https://tools.ietf.org/html/rfc5077][RFC 5077]] Transport Layer Security
+(TLS) Session Resumption without Server-Side State
+"The role of cookies in NTS is closely analogous to that of session cookies
+in TLS."
+
+[[https://tools.ietf.org/html/rfc5705][RFC 5705]] - Keying Material Exporters for Transport Layer Security (TLS)
+
+[[https://tools.ietf.org/html/rfc7507][RFC 7507]] - TLS Fallback Signaling
+Cipher Suite Value (SCSV) for Preventing Protocol Downgrade Attacks
+
+[[https://tools.ietf.org/html/rfc7301][RFC 7301]] - Transport Layer Security (TLS) Application-Layer Protocol Negotiation Extension
+
+[[https://tools.ietf.org/html/rfc5116][RFC 5116]] - An Interface and Algorithms for Authenticated Encryption
+
+[[https://tools.ietf.org/html/rfc5297][RFC 5297]] Synthetic Initialization
+Vector (SIV) Authenticated Encryption Using the Advanced Encryption Standard
+(AES)
+
+[[https://tools.ietf.org/html/rfc4291#section-2.5.5.2][RFC 4291]] - section 2.5.5.2 - IPv4-Mapped IPv6 Address
+
+[[https://tools.ietf.org/html/rfc5869][RFC 5869]] - HMAC-based
+Extract-and-Expand Key Derivation Function (HKDF)
 
 ** Drafts
 
@@ -68,6 +93,9 @@ NTS Key Establishment protocol. Separate protocol for keys?
 But there was a different proposal?
 
 https://tools.ietf.org/wg/ntp/
+
+[[https://datatracker.ietf.org/doc/draft-ietf-tls-tls13/][draft-ietf-tls-tls13]]
+The Transport Layer Security (TLS) Protocol Version 1.3
 
 *** Dansarie spec
 https://datatracker.ietf.org/doc/draft-dansarie-nts/?include_text=1
