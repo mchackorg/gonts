@@ -92,6 +92,8 @@ NTS Key Establishment protocol. Separate protocol for keys?
 
 But there was a different proposal?
 
+omni: s/from sent from/when sent from/
+
 https://tools.ietf.org/wg/ntp/
 
 [[https://datatracker.ietf.org/doc/draft-ietf-tls-tls13/][draft-ietf-tls-tls13]]
