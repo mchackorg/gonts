@@ -193,6 +193,8 @@ https://github.com/vladimirvivien/go-ntp-client
 https://github.com/mengzhuo/gontpd
 http://gontpd.org
 
+  uses beevik/ntp for client.
+
 ** Testing
 
 18:00 <Martin___> well...  I currently have 2 servers running
