@@ -17,6 +17,8 @@ func main() {
 	var config mint.Config
 	config.SendSessionTickets = true
 	config.ServerName = "localhost"
+	config.NextProtos = []string{"ntske/1"}
+
 	priv, cert, err := mint.MakeNewSelfSignedCert("localhost", mint.RSA_PKCS1_SHA256)
 	config.Certificates = []*mint.Certificate{
 		{

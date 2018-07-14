@@ -14,7 +14,10 @@ var dtls bool
 var dontValidate bool
 
 func main() {
+	alpn := "ntske/1"
+
 	c := mint.Config{}
+	c.NextProtos = []string{alpn}
 
 	flag.StringVar(&addr, "addr", "localhost:4430", "port")
 	flag.BoolVar(&dtls, "dtls", false, "use DTLS")
@@ -27,16 +30,17 @@ func main() {
 	if dtls {
 		network = "udp"
 	}
-	conn, err := mint.Dial(network, addr, &c)
 
+	conn, err := mint.Dial(network, addr, &c)
 	if err != nil {
 		fmt.Println("TLS handshake failed:", err)
 		return
 	}
 
-	// offered := []string{"ntske/1"}
-	// a, err := mint.ALPNNegotiation(nil, offered, offered)
-	// fmt.Printf("__ %s __\n", a)
+	state := conn.ConnectionState()
+	if state.NextProto != alpn {
+		panic("server not doing ntske/1")
+	}
 
 	// 4.2. in https://tools.ietf.org/html/draft-dansarie-nts-00
 	label := "EXPORTER-network-time-security/1"
