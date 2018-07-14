@@ -125,12 +125,12 @@ func main() {
 
 	var rec []uint16 // rectype, bodylen, body
 	// nextproto
-	rec = []uint16{1, 2, 0}
+	rec = []uint16{1, 2, 0x00} // NTPv4
 	rec[0] = setBit(rec[0], 15)
 	err = binary.Write(msg, binary.BigEndian, rec)
 
-	// aead
-	rec = []uint16{4, 2, 15} // 15 is the cipher suite
+	// AEAD
+	rec = []uint16{4, 2, 0x0f} // AES-SIV-CMAC-256
 	rec[0] = setBit(rec[0], 15)
 	err = binary.Write(msg, binary.BigEndian, rec)
 
@@ -142,9 +142,24 @@ func main() {
 	fmt.Printf("% x\n", msg)
 	conn.Write(msg.Bytes())
 
+	response := ""
+	buffer := make([]byte, 1024)
+	for err == nil {
+		_, err = conn.Read(buffer)
+		response += string(buffer)
+	}
+
+	fmt.Printf("we got: % x\n", response)
+
+	// TODO
+	// get ntp server
+	// get cookies
+
 	// 4.2. in https://tools.ietf.org/html/draft-dansarie-nts-00
 	label := "EXPORTER-network-time-security/1"
-	// 0x000f = AES-SIV-CMAC-256
+	// 0x0000 = nextproto (protocol ID for NTPv4)
+	// 0x000f = AEAD (AES-SIV-CMAC-256)
+	// 0x00 s2c | 0x01 c2s
 	s2c_context := []byte("\x00\x00\x00\x0f\x00")
 	c2s_context := []byte("\x00\x00\x00\x0f\x01")
 	keyLength := 32
@@ -159,14 +174,5 @@ func main() {
 	}
 	fmt.Printf("c2s: %v\n", c2s_key)
 	fmt.Printf("s2c: %v\n", s2c_key)
-
-	//
-	response := ""
-	buffer := make([]byte, 1024)
-	for err == nil {
-		_, err = conn.Read(buffer)
-		response += string(buffer)
-	}
-	fmt.Printf("we got: % x\n", response)
 
 }
