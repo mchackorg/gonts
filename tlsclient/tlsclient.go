@@ -6,6 +6,7 @@ import (
 	"bytes"
 	"encoding/binary"
 	"encoding/json"
+	"errors"
 	"flag"
 	"fmt"
 	"io/ioutil"
@@ -25,7 +26,7 @@ type Msg struct {
 type Data struct {
 	C2s_key []byte
 	S2c_key []byte
-	Server  []string
+	Server  [][16]byte
 	Cookie  [][]byte
 	Algo    uint16 // AEAD
 }
@@ -45,16 +46,17 @@ func setBit(n uint16, pos uint) uint16 {
 	return n
 }
 
-func parseMsg(data []byte) {
+func parseMsg(data []byte) (*Data, error) {
 	var msg Msg
 
+	meta := new(Data)
 	buf := bytes.NewReader(data)
 
 	for {
 		err := binary.Read(buf, binary.BigEndian, &msg)
 		if err != nil {
 			fmt.Println("binary.Read failed:", err)
-			return
+			return nil, err
 		}
 
 		// Get rid of Critical bit.
@@ -65,13 +67,18 @@ func parseMsg(data []byte) {
 		switch msg.RecType {
 		case rec_eom:
 			fmt.Println("  Type: End of message")
-			return
+			// Check that we have complete data.
+			if len(meta.Server) == 0 || len(meta.Cookie) == 0 || meta.Algo == 0 {
+				return nil, errors.New("incomplete data")
+			}
+
+			return meta, nil
 		case rec_nextproto:
 			fmt.Println("  Type: Next proto")
 			var nextProto uint16
 			err := binary.Read(buf, binary.BigEndian, &nextProto)
 			if err != nil {
-				panic(err)
+				return nil, errors.New("buffer overrun")
 			}
 			fmt.Printf("next proto: % x\n", nextProto)
 
@@ -80,18 +87,20 @@ func parseMsg(data []byte) {
 			var aead uint16
 			err := binary.Read(buf, binary.BigEndian, &aead)
 			if err != nil {
-				panic(err)
+				return nil, errors.New("buffer overrun")
 			}
 			fmt.Printf(" AEAD: % x\n", aead)
+			meta.Algo = aead
 
 		case rec_cookie:
 			fmt.Println("  Type: Cookie")
 			cookie := make([]byte, msg.BodyLen)
 			err := binary.Read(buf, binary.BigEndian, &cookie)
 			if err != nil {
-				panic(err)
+				return nil, errors.New("buffer overrun")
 			}
 			fmt.Printf(" Cookie: % x\n", cookie)
+			meta.Cookie = append(meta.Cookie, cookie)
 
 		case rec_ntpserver:
 			fmt.Println("  Type: NTP servers")
@@ -105,9 +114,10 @@ func parseMsg(data []byte) {
 			for i := 0; i < int(servers); i++ {
 				err := binary.Read(buf, binary.BigEndian, &address)
 				if err != nil {
-					panic(err)
+					return nil, errors.New("buffer overrun")
 				}
 				fmt.Printf("  NTP server address: % x\n", address)
+				meta.Server = append(meta.Server, address)
 			}
 
 		}
@@ -174,9 +184,14 @@ func main() {
 		response = append(response, buffer...)
 	}
 
-	parseMsg(response)
+	data, err := parseMsg(response)
+	if err != nil {
+		fmt.Printf("parseMsg error: %v\n", err)
+		return
+	}
 
-	data := new(Data)
+	fmt.Printf("data: %v\n", data)
+
 	// TODO
 	// when parsed: stuff ntp server(s) and cookie(s) into data
 
