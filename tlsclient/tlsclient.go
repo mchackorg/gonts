@@ -139,17 +139,27 @@ func main() {
 	rec[0] = setBit(rec[0], 15)
 	err = binary.Write(msg, binary.BigEndian, rec)
 
-	fmt.Printf("% x\n", msg)
+	fmt.Printf("gonna write:\n% x\n", msg)
 	conn.Write(msg.Bytes())
 
 	response := ""
 	buffer := make([]byte, 1024)
+	var read int
 	for err == nil {
-		_, err = conn.Read(buffer)
+		var r int
+		r, err = conn.Read(buffer)
+		read += r
 		response += string(buffer)
 	}
 
-	fmt.Printf("we got: % x\n", response)
+	fmt.Printf("got:\n")
+	for i := 0; i < read; i++ {
+		fmt.Printf("%02x ", response[i])
+		if (i+1)%16 == 0 {
+			fmt.Printf("\n")
+		}
+	}
+	fmt.Printf("\n")
 
 	// TODO
 	// get ntp server
