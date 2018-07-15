@@ -67,8 +67,11 @@ func parseMsg(data []byte) (*Data, error) {
 		switch msg.RecType {
 		case rec_eom:
 			fmt.Println("  Type: End of message")
-			// Check that we have complete data.
-			if len(meta.Server) == 0 || len(meta.Cookie) == 0 || meta.Algo == 0 {
+			// Check that we have complete data. It's OK
+			// if we don't fill in meta.Server --- this
+			// means the client should use the same IP
+			// address as the NTS-KE server.
+			if len(meta.Cookie) == 0 || meta.Algo == 0 {
 				return nil, errors.New("incomplete data")
 			}
 
@@ -192,16 +195,27 @@ func main() {
 
 	fmt.Printf("data: %v\n", data)
 
-	// TODO
-	// when parsed: stuff ntp server(s) and cookie(s) into data
-
 	// 4.2. in https://tools.ietf.org/html/draft-dansarie-nts-00
 	label := "EXPORTER-network-time-security/1"
-	// 0x0000 = nextproto (protocol ID for NTPv4)
-	// 0x000f = AEAD (AES-SIV-CMAC-256)
-	// 0x00 s2c | 0x01 c2s
-	s2c_context := []byte("\x00\x00\x00\x0f\x00")
-	c2s_context := []byte("\x00\x00\x00\x0f\x01")
+
+	// The per-association context value SHALL consist of the following
+	// five octets:
+	//
+	// The first two octets SHALL be zero (the Protocol ID for NTPv4).
+	//
+	// The next two octets SHALL be the Numeric Identifier of the
+	// negotiated AEAD Algorithm in network byte order. Typically
+	// 0x0f for AES-SIV-CMAC-256.
+	//
+	// The final octet SHALL be 0x00 for the C2S key and 0x01 for the
+	// S2C key.
+	s2c_context := []byte("\x00\x00\x00")
+	binary.BigEndian.PutUint16(s2c_context, data.Algo)
+	s2c_context = append(s2c_context, 0x00)
+
+	c2s_context := []byte("\x00\x00\x00")
+	binary.BigEndian.PutUint16(c2s_context, data.Algo)
+	c2s_context = append(s2c_context, 0x01)
 
 	var keylength = 32
 	// exported keying materials
