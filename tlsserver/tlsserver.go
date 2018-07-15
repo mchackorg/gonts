@@ -6,7 +6,6 @@ import (
 	"bytes"
 	"crypto/x509"
 	"encoding/binary"
-	"encoding/json"
 	"flag"
 	"fmt"
 	"log"
@@ -59,13 +58,13 @@ func setBit(n uint16, pos uint) uint16 {
 	n |= (1 << pos)
 	return n
 }
-
 func handleClient(conn net.Conn) {
 	defer conn.Close()
 
 	msg := new(bytes.Buffer)
 
 	var rec []uint16 // rectype, bodylen, body
+	var octets []uint8
 
 	// nextproto
 	rec = []uint16{1, 2, 0x00} // NTPv4
@@ -81,17 +80,14 @@ func handleClient(conn net.Conn) {
 	rec = []uint16{6, 16} // 1 server addr == 16 bytes
 	rec[0] = setBit(rec[0], 15)
 	_ = binary.Write(msg, binary.BigEndian, rec)
-	octets := []uint8{0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1} // ::1
+	octets = []uint8{0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1} // ::1
 	_ = binary.Write(msg, binary.BigEndian, octets)
 
 	// new cookie
-	// TODO The cookie(s?) to be delivered to the NTS client (*and* to the NTP
-	// server below) are to be baked according to some good recipe, perhaps: 7.
-	// Suggested Format for NTS Cookies
-	cookie := [5]uint8{42, 47, 11, 40, 96}
-	rec = []uint16{5, uint16(len(cookie))}
+	rec = []uint16{5, 1}
 	_ = binary.Write(msg, binary.BigEndian, rec)
-	_ = binary.Write(msg, binary.BigEndian, cookie)
+	octets = []uint8{42}
+	_ = binary.Write(msg, binary.BigEndian, octets)
 
 	// end of message
 	rec = []uint16{0, 0}
@@ -100,17 +96,6 @@ func handleClient(conn net.Conn) {
 
 	fmt.Printf("gonna write: % x\n", msg)
 	conn.Write(msg.Bytes())
-
-	log.Println("delivering cookie to NTP *server*")
-	conn, err := net.Dial("tcp", "localhost:6000")
-	if err != nil {
-		fmt.Printf("dial failed: %s\n", err)
-	} else {
-		encoder := json.NewEncoder(conn)
-		if err = encoder.Encode(cookie); err != nil {
-			fmt.Printf("encode failed: %s\n", err)
-		}
-	}
 
 	log.Println("server: conn: closed")
 }
