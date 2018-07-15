@@ -314,3 +314,15 @@ About mint:
 Try using the OpenSSL bindings instead?
 
 https://github.com/spacemonkeygo/openssl
+
+*** found pull request on mint for draft-28
+
+Tried using it like so:
+
+    cd $GOPATH/src/github.com/bifurcation/mint
+    git remote add draft-28 https://github.com/martinthomson/mint
+    git fetch draft-28
+    git checkout draft-28/draft-28
+
+and rebuild tlsclient. Could kinda speak with tls13.crypto.mozilla.org:443 --
+it didn't know ALPN `ntske/1`!
