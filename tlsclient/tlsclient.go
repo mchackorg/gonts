@@ -8,6 +8,7 @@ import (
 	"encoding/json"
 	"flag"
 	"fmt"
+	"io/ioutil"
 
 	"github.com/bifurcation/mint"
 )
@@ -94,11 +95,14 @@ func setBit(n uint16, pos uint) uint16 {
 // }
 
 type Data struct {
-	C2s_key []byte
-	S2c_key []byte
-	Server  string
-	Cookie  []byte
+	C2s_key string
+	S2c_key string
+	Server  []string
+	Cookie  [][]byte
+	Algo    uint16 // AEAD
 }
+
+const datafn = "../ke.json"
 
 func main() {
 	alpn := "ntske/1"
@@ -191,5 +195,6 @@ func main() {
 	}
 
 	b, err := json.Marshal(data)
-	fmt.Printf("%s\n", b)
+	err = ioutil.WriteFile(datafn, b, 0644)
+	fmt.Printf("Wrote %s\n", datafn)
 }
