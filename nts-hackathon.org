@@ -329,3 +329,7 @@ https://github.com/spacemonkeygo/openssl
 https://www.openssl.org/docs/man1.1.1/man3/SSL_export_keying_material.html
 
 but that isn't exposed in the Golang wrapper.
+
+*** NTP Extension Fields
+
+https://tools.ietf.org/html/rfc7822
