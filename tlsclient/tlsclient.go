@@ -16,9 +16,91 @@ var addr string
 var dtls bool
 var dontValidate bool
 
+type Msg struct {
+	RecType uint16
+	BodyLen uint16
+}
+
+const (
+	rec_eom       = 0
+	rec_nextproto = 1
+	rec_aead      = 4
+	rec_cookie    = 5
+	rec_ntpserver = 6
+)
+
 func setBit(n uint16, pos uint) uint16 {
 	n |= (1 << pos)
 	return n
+}
+
+func parseMsg(data []byte) {
+	var msg Msg
+
+	buf := bytes.NewReader(data)
+
+	for {
+		err := binary.Read(buf, binary.BigEndian, &msg)
+		if err != nil {
+			fmt.Println("binary.Read failed:", err)
+			return
+		}
+
+		// Get rid of Critical bit.
+		msg.RecType &^= (1 << 15)
+		fmt.Println("New message: ")
+		fmt.Printf("  record type: % x\n", msg.RecType)
+		fmt.Printf("  body length: % x\n", msg.BodyLen)
+		switch msg.RecType {
+		case rec_eom:
+			fmt.Println("  Type: End of message")
+			return
+		case rec_nextproto:
+			fmt.Println("  Type: Next proto")
+			var nextProto uint16
+			err := binary.Read(buf, binary.BigEndian, &nextProto)
+			if err != nil {
+				panic(err)
+			}
+			fmt.Printf("next proto: % x\n", nextProto)
+
+		case rec_aead:
+			fmt.Println("  Type: AEAD")
+			var aead uint16
+			err := binary.Read(buf, binary.BigEndian, &aead)
+			if err != nil {
+				panic(err)
+			}
+			fmt.Printf(" AEAD: % x\n", aead)
+
+		case rec_cookie:
+			fmt.Println("  Type: Cookie")
+			cookie := make([]byte, msg.BodyLen)
+			err := binary.Read(buf, binary.BigEndian, &cookie)
+			if err != nil {
+				panic(err)
+			}
+			fmt.Printf(" Cookie: % x\n", cookie)
+
+		case rec_ntpserver:
+			fmt.Println("  Type: NTP servers")
+
+			var address [16]byte
+
+			servers := msg.BodyLen / uint16(len(address))
+
+			fmt.Printf(" number of servers: %d\n", servers)
+
+			for i := 0; i < int(servers); i++ {
+				err := binary.Read(buf, binary.BigEndian, &address)
+				if err != nil {
+					panic(err)
+				}
+				fmt.Printf("  NTP server address: % x\n", address)
+			}
+
+		}
+	}
 }
 
 // type nextproto_ntske struct {
@@ -150,15 +232,17 @@ func main() {
 	fmt.Printf("gonna write:\n% x\n", msg)
 	conn.Write(msg.Bytes())
 
-	response := ""
+	var response []byte
 	buffer := make([]byte, 1024)
 	var read int
 	for err == nil {
 		var r int
 		r, err = conn.Read(buffer)
 		read += r
-		response += string(buffer)
+		response = append(response, buffer...)
 	}
+
+	parseMsg(response)
 
 	// fmt.Printf("got:\n")
 	// for i := 0; i < read; i++ {
