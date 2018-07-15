@@ -3,8 +3,11 @@ package main
 // This began it's life as github.com/bifurcation/mint/bin/mint-server
 
 import (
+	"bytes"
 	"crypto/x509"
+	"encoding/binary"
 	"flag"
+	"fmt"
 	"log"
 	"net"
 
@@ -51,27 +54,48 @@ func main() {
 	}
 }
 
+func setBit(n uint16, pos uint) uint16 {
+	n |= (1 << pos)
+	return n
+}
 func handleClient(conn net.Conn) {
 	defer conn.Close()
-	buf := make([]byte, 10)
-	for {
-		log.Print("server: conn: waiting")
-		n, err := conn.Read(buf)
-		if err != nil {
-			if err != nil {
-				log.Printf("server: conn: read: %s", err)
-			}
-			break
-		}
 
-		n, err = conn.Write([]byte("hello world"))
-		log.Printf("server: conn: wrote %d bytes", n)
+	msg := new(bytes.Buffer)
 
-		if err != nil {
-			log.Printf("server: write: %s", err)
-			break
-		}
-		break
-	}
+	var rec []uint16 // rectype, bodylen, body
+	var octets []uint8
+
+	// nextproto
+	rec = []uint16{1, 2, 0x00} // NTPv4
+	rec[0] = setBit(rec[0], 15)
+	_ = binary.Write(msg, binary.BigEndian, rec)
+
+	// AEAD
+	rec = []uint16{4, 2, 0x0f} // AES-SIV-CMAC-256
+	rec[0] = setBit(rec[0], 15)
+	_ = binary.Write(msg, binary.BigEndian, rec)
+
+	// ntp server
+	rec = []uint16{6, 16} // 1 server addr == 16 bytes
+	rec[0] = setBit(rec[0], 15)
+	_ = binary.Write(msg, binary.BigEndian, rec)
+	octets := []uint8{0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1} // ::1
+	_ = binary.Write(msg, binary.BigEndian, octets)
+
+	// new cookie
+	rec = []uint16{5, 1}
+	_ = binary.Write(msg, binary.BigEndian, rec)
+	octets = []uint8{42}
+	_ = binary.Write(msg, binary.BigEndian, octets)
+
+	// end of message
+	rec = []uint16{0, 0}
+	rec[0] = setBit(rec[0], 15)
+	_ = binary.Write(msg, binary.BigEndian, rec)
+
+	fmt.Printf("gonna write: % x\n", msg)
+	conn.Write(msg.Bytes())
+
 	log.Println("server: conn: closed")
 }
