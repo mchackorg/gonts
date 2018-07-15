@@ -3,9 +3,11 @@ package main
 import (
 	"bytes"
 	"encoding/binary"
+	"encoding/json"
 	"fmt"
 	"log"
 	"net"
+	"os"
 	"time"
 )
 
@@ -121,7 +123,35 @@ func toNtpTime(t time.Time) ntpTime {
 	return ntpTime(sec<<32 | frac)
 }
 
-func main() {
+func handleCookieConn(conn net.Conn, ch chan []uint8) {
+	defer conn.Close()
+	var cookie []uint8
+	decoder := json.NewDecoder(conn)
+	err := decoder.Decode(&cookie)
+	if err != nil {
+		fmt.Println("cookie decode failed: ", err.Error())
+		return
+	}
+	ch <- cookie
+}
+
+func receiveCookies(ch chan []uint8) {
+	l, err := net.Listen("tcp", ":6000")
+	if err != nil {
+		fmt.Println(err)
+		os.Exit(1)
+	}
+	for {
+		conn, err := l.Accept()
+		if err != nil {
+			fmt.Println("accept failed: ", err.Error())
+			continue
+		}
+		go handleCookieConn(conn, ch)
+	}
+}
+
+func serveTime() {
 	xmitMsg := new(msg)
 	xmitMsg.setMode(server)
 	xmitMsg.setVersion(4)
@@ -163,5 +193,17 @@ func main() {
 		fmt.Printf("xmitMsg: %v\n", xmitMsg)
 
 		pc.WriteTo(buf.Bytes(), addr)
+	}
+}
+
+func main() {
+	ch := make(chan []uint8)
+	go receiveCookies(ch)
+
+	go serveTime()
+
+	for {
+		cookie := <-ch
+		fmt.Printf("got a new cookie: %v\n", cookie)
 	}
 }
