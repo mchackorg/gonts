@@ -315,6 +315,9 @@ Try using the OpenSSL bindings instead?
 
 https://github.com/spacemonkeygo/openssl
 
+https://www.ietf.org/rfcdiff?url1=draft-ietf-tls-tls13-22&url2=draft-ietf-tls-tls13-28
+https://tools.ietf.org/html/draft-ietf-tls-tls13-28#section-1.2
+
 *** found pull request on mint for draft-28
 
 Tried using it like so:
