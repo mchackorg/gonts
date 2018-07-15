@@ -265,7 +265,7 @@ Server:
 
   - C : may be set.
   - record type 4.
-  - 15 unsigned 16-bit integers 
+  - 15 - unsigned 16-bit integer
 
 what would the client like to use?
  server: what I choose to use.
@@ -295,10 +295,6 @@ should be sent by the server as a reply
 
 servers should send at least one cookie record.
 
-bytes.Buffer
-
-  Write()
-
 ** TLS too old
 
 Tried running mint against
@@ -310,10 +306,6 @@ About mint:
 22:30 <Martin___> it supports 1.3 (draft 22)
 22:30 <Martin___> openssl supports draft 26-28
 22:31 <Martin___> but tls 1.2 should work
-
-Try using the OpenSSL bindings instead?
-
-https://github.com/spacemonkeygo/openssl
 
 https://www.ietf.org/rfcdiff?url1=draft-ietf-tls-tls13-22&url2=draft-ietf-tls-tls13-28
 https://tools.ietf.org/html/draft-ietf-tls-tls13-28#section-1.2
@@ -329,3 +321,11 @@ Tried using it like so:
 
 and rebuild tlsclient. Could kinda speak with tls13.crypto.mozilla.org:443 --
 it didn't know ALPN `ntske/1`!
+
+Another option is trying using the OpenSSL bindings instead?
+
+https://github.com/spacemonkeygo/openssl
+
+https://www.openssl.org/docs/man1.1.1/man3/SSL_export_keying_material.html
+
+but that isn't exposed in the Golang wrapper.
