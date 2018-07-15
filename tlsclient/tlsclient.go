@@ -23,8 +23,8 @@ func setBit(n uint16, pos uint) uint16 {
 }
 
 type Data struct {
-	C2s_key string
-	S2c_key string
+	C2s_key []byte
+	S2c_key []byte
 	Server  []string
 	Cookie  [][]byte
 	Algo    uint16 // AEAD
