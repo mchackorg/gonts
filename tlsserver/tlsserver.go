@@ -80,7 +80,7 @@ func handleClient(conn net.Conn) {
 	rec = []uint16{6, 16} // 1 server addr == 16 bytes
 	rec[0] = setBit(rec[0], 15)
 	_ = binary.Write(msg, binary.BigEndian, rec)
-	octets := []uint8{0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1} // ::1
+	octets = []uint8{0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1} // ::1
 	_ = binary.Write(msg, binary.BigEndian, octets)
 
 	// new cookie
