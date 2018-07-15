@@ -5,6 +5,7 @@ package main
 import (
 	"bytes"
 	"encoding/binary"
+	"encoding/json"
 	"flag"
 	"fmt"
 
@@ -92,6 +93,13 @@ func setBit(n uint16, pos uint) uint16 {
 // 	return rec
 // }
 
+type Data struct {
+	C2s_key []byte
+	S2c_key []byte
+	Server  string
+	Cookie  []byte
+}
+
 func main() {
 	alpn := "ntske/1"
 
@@ -152,18 +160,18 @@ func main() {
 		response += string(buffer)
 	}
 
-	fmt.Printf("got:\n")
-	for i := 0; i < read; i++ {
-		fmt.Printf("%02x ", response[i])
-		if (i+1)%16 == 0 {
-			fmt.Printf("\n")
-		}
-	}
-	fmt.Printf("\n")
+	// fmt.Printf("got:\n")
+	// for i := 0; i < read; i++ {
+	// 	fmt.Printf("%02x ", response[i])
+	// 	if (i+1)%16 == 0 {
+	// 		fmt.Printf("\n")
+	// 	}
+	// }
+	// fmt.Printf("\n")
 
+	data := new(Data)
 	// TODO
-	// get ntp server
-	// get cookies
+	// when parsed: stuff ntp server(s) and cookie(s) into data
 
 	// 4.2. in https://tools.ietf.org/html/draft-dansarie-nts-00
 	label := "EXPORTER-network-time-security/1"
@@ -172,17 +180,16 @@ func main() {
 	// 0x00 s2c | 0x01 c2s
 	s2c_context := []byte("\x00\x00\x00\x0f\x00")
 	c2s_context := []byte("\x00\x00\x00\x0f\x01")
-	keyLength := 32
 
+	var keylength = 32
 	// exported keying materials
-	var c2s_key, s2c_key []byte
-	if c2s_key, err = conn.ComputeExporter(label, c2s_context, keyLength); err != nil {
+	if data.C2s_key, err = conn.ComputeExporter(label, c2s_context, keylength); err != nil {
 		panic("bork")
 	}
-	if s2c_key, err = conn.ComputeExporter(label, s2c_context, keyLength); err != nil {
+	if data.S2c_key, err = conn.ComputeExporter(label, s2c_context, keylength); err != nil {
 		panic("bork")
 	}
-	fmt.Printf("c2s: %v\n", c2s_key)
-	fmt.Printf("s2c: %v\n", s2c_key)
 
+	b, err := json.Marshal(data)
+	fmt.Printf("%s\n", b)
 }
