@@ -46,8 +46,14 @@ func setBit(n uint16, pos uint) uint16 {
 	return n
 }
 
+func hasBit(n uint16, pos uint) bool {
+	val := n & (1 << pos)
+	return (val > 0)
+}
+
 func parseMsg(data []byte) (*Data, error) {
 	var msg Msg
+	var critical bool
 
 	meta := new(Data)
 	buf := bytes.NewReader(data)
@@ -57,6 +63,17 @@ func parseMsg(data []byte) (*Data, error) {
 		if err != nil {
 			fmt.Println("binary.Read failed:", err)
 			return nil, err
+		}
+
+		// C (Critical Bit): Determines the disposition of
+		// unrecognized Record Types. Implementations which
+		// receive a record with an unrecognized Record Type
+		// MUST ignore the record if the Critical Bit is 0 and
+		// MUST treat it as an error if the Critical Bit is 1.
+		if hasBit(msg.RecType, 15) {
+			critical = true
+		} else {
+			critical = false
 		}
 
 		// Get rid of Critical bit.
@@ -123,6 +140,20 @@ func parseMsg(data []byte) (*Data, error) {
 				meta.Server = append(meta.Server, address)
 			}
 
+		default:
+			if critical {
+				return nil, errors.New("unknown record type with critical bit set")
+			}
+
+			// Swallow unknown record.
+			unknownMsg := make([]byte, msg.BodyLen)
+			err := binary.Read(buf, binary.BigEndian, &unknownMsg)
+			if err != nil {
+				return nil, errors.New("buffer overrun")
+			}
+
+			fmt.Printf("  Type: Unknown (% x)", msg.RecType)
+			fmt.Printf("  % x\n", unknownMsg)
 		}
 	}
 }
