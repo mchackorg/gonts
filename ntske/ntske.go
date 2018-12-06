@@ -3,17 +3,16 @@ package ntske
 import (
 	"bufio"
 	"bytes"
+	"crypto/tls"
 	"encoding/binary"
 	"errors"
 	"fmt"
-
-	"github.com/bifurcation/mint"
 )
 
 // KeyExchange is Network Time Security Key Exchange connection
 type KeyExchange struct {
 	hostport string
-	conn     *mint.Conn
+	conn     *tls.Conn
 	reader   *bufio.Reader
 	buf      *bytes.Buffer
 	Meta     Data
@@ -42,14 +41,14 @@ const (
 
 const alpn = "ntske/1"
 
-func Connect(hostport string, config mint.Config) (*KeyExchange, error) {
+func Connect(hostport string, config tls.Config) (*KeyExchange, error) {
 	config.NextProtos = []string{alpn}
 
 	ke := new(KeyExchange)
 	ke.hostport = hostport
 	var err error
 
-	ke.conn, err = mint.Dial("tcp", hostport, &config)
+	ke.conn, err = tls.Dial("tcp", hostport, &config)
 	if err != nil {
 		fmt.Println("TLS handshake failed:", err)
 		return nil, err
@@ -58,7 +57,7 @@ func Connect(hostport string, config mint.Config) (*KeyExchange, error) {
 	ke.reader = bufio.NewReader(ke.conn)
 
 	state := ke.conn.ConnectionState()
-	if state.NextProto != alpn {
+	if state.NegotiatedProtocol != alpn {
 		return nil, fmt.Errorf("server not speaking ntske/1")
 	}
 
@@ -168,10 +167,12 @@ func (ke *KeyExchange) ExportKeys() error {
 	var keylength = 32
 	// Get exported keys
 	var err error
-	if ke.Meta.C2s_key, err = ke.conn.ComputeExporter(label, c2s_context, keylength); err != nil {
+
+	state := ke.conn.ConnectionState()
+	if ke.Meta.C2s_key, err = state.ExportKeyingMaterial(label, c2s_context, keylength); err != nil {
 		return err
 	}
-	if ke.Meta.S2c_key, err = ke.conn.ComputeExporter(label, s2c_context, keylength); err != nil {
+	if ke.Meta.S2c_key, err = state.ExportKeyingMaterial(label, s2c_context, keylength); err != nil {
 		return err
 	}
 
