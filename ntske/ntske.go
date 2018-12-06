@@ -7,6 +7,8 @@ import (
 	"encoding/binary"
 	"errors"
 	"fmt"
+	"log"
+	"net"
 )
 
 // KeyExchange is Network Time Security Key Exchange connection
@@ -41,6 +43,31 @@ const (
 
 const alpn = "ntske/1"
 
+func NewConnection(listener net.Listener) (*KeyExchange, error) {
+	ke := new(KeyExchange)
+	conn, err := listener.Accept()
+	if err != nil {
+		return nil, fmt.Errorf("Couldn't answer`")
+	}
+
+	log.Printf("server: accepted from %s", conn.RemoteAddr())
+
+	var ok bool
+	ke.conn, ok = conn.(*tls.Conn)
+	if !ok {
+		return nil, fmt.Errorf("could not convert to tls connection")
+	}
+
+	ke.reader = bufio.NewReader(ke.conn)
+
+	// state := ke.conn.ConnectionState()
+	// if state.NegotiatedProtocol != alpn {
+	// 	return nil, fmt.Errorf("client not speaking ntske/1")
+	// }
+
+	return ke, nil
+}
+
 func Connect(hostport string, config tls.Config) (*KeyExchange, error) {
 	config.NextProtos = []string{alpn}
 
@@ -74,7 +101,7 @@ func (ke *KeyExchange) StartMessage() error {
 	return binary.Write(ke.buf, binary.BigEndian, rec)
 }
 
-func (ke *KeyExchange) Server(addr [][16]uint8) error {
+func (ke *KeyExchange) NTPServer(addr [][16]uint8) error {
 	var rec []uint16 // rectype, bodylen, body
 
 	length := len(addr)
@@ -181,7 +208,6 @@ func (ke *KeyExchange) ExportKeys() error {
 
 func (ke *KeyExchange) Read() error {
 	var msg Record
-
 	var critical bool
 
 	for {
@@ -214,9 +240,9 @@ func (ke *KeyExchange) Read() error {
 			// if we don't fill in meta.Server --- this
 			// means the client should use the same IP
 			// address as the NTS-KE server.
-			if len(ke.Meta.Cookie) == 0 || ke.Meta.Algo == 0 {
-				return errors.New("incomplete data")
-			}
+			// if len(ke.Meta.Cookie) == 0 || ke.Meta.Algo == 0 {
+			// 	return errors.New("incomplete data")
+			// }
 
 			return nil
 
