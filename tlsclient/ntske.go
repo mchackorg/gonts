@@ -10,14 +10,27 @@ import (
 	"github.com/bifurcation/mint"
 )
 
+// KeyExchange is Network Time Security Key Exchange connection
 type KeyExchange struct {
 	hostport string
 	conn     *mint.Conn
 	reader   *bufio.Reader
+	buf      *bytes.Buffer
 	meta     Data
 }
 
+const (
+	rec_eom       = 0
+	rec_nextproto = 1
+	rec_aead      = 4
+	rec_cookie    = 5
+	rec_ntpserver = 6
+)
+
 func Connect(hostport string, config mint.Config) (*KeyExchange, error) {
+	alpn := "ntske/1"
+	config.NextProtos = []string{alpn}
+
 	ke := new(KeyExchange)
 	ke.hostport = hostport
 	var err error
@@ -31,36 +44,94 @@ func Connect(hostport string, config mint.Config) (*KeyExchange, error) {
 	ke.reader = bufio.NewReader(ke.conn)
 
 	state := ke.conn.ConnectionState()
-	if state.NextProto != "ntske/1" {
+	if state.NextProto != alpn {
 		return nil, fmt.Errorf("server not speaking ntske/1")
 	}
-
-	msg := new(bytes.Buffer)
-
-	var rec []uint16 // rectype, bodylen, body
-	// nextproto
-	rec = []uint16{1, 2, 0x00} // NTPv4
-	rec[0] = setBit(rec[0], 15)
-	err = binary.Write(msg, binary.BigEndian, rec)
-
-	// AEAD
-	rec = []uint16{4, 2, 0x0f} // AES-SIV-CMAC-256
-	rec[0] = setBit(rec[0], 15)
-	err = binary.Write(msg, binary.BigEndian, rec)
-
-	// end of message
-	rec = []uint16{0, 0}
-	rec[0] = setBit(rec[0], 15)
-	err = binary.Write(msg, binary.BigEndian, rec)
-
-	fmt.Printf("writing:\n% x\n", msg)
-	ke.conn.Write(msg.Bytes())
 
 	return ke, nil
 }
 
-func (ke *KeyExchange) readReply() error {
-	var msg Msg
+func (ke *KeyExchange) StartMessage() error {
+	ke.buf = new(bytes.Buffer)
+
+	var rec []uint16           // rectype, bodylen, body
+	rec = []uint16{1, 2, 0x00} // NTPv4
+	rec[0] = setBit(rec[0], 15)
+
+	return binary.Write(ke.buf, binary.BigEndian, rec)
+}
+
+func (ke *KeyExchange) Algorithm() error {
+	if ke.buf == nil {
+		return fmt.Errorf("No buffer space - start with StartMessage()")
+	}
+
+	var rec []uint16 // rectype, bodylen, body
+
+	// Server implementations of NTS extension fields for NTPv4 (Section 5)
+	// MUST support AEAD_AES_SIV_CMAC_256 [RFC5297] (Numeric Identifier 15).
+	rec = []uint16{4, 2, 0x0f} // AES-SIV-CMAC-256
+	rec[0] = setBit(rec[0], 15)
+
+	return binary.Write(ke.buf, binary.BigEndian, rec)
+}
+
+// Write() adds an End of Message record, then writes entire message to server
+func (ke *KeyExchange) Write() error {
+	if ke.buf == nil {
+		return fmt.Errorf("No buffer space - start with StartMessage()")
+	}
+
+	rec := []uint16{0, 0}
+	rec[0] = setBit(rec[0], 15)
+
+	err := binary.Write(ke.buf, binary.BigEndian, rec)
+	if err != nil {
+		return err
+	}
+
+	_, err = ke.conn.Write(ke.buf.Bytes())
+	return err
+}
+
+func (ke *KeyExchange) ExportKeys() error {
+	// 4.2. in https://tools.ietf.org/html/draft-dansarie-nts-00
+	label := "EXPORTER-network-time-security/1"
+
+	// The per-association context value SHALL consist of the following
+	// five octets:
+	//
+	// The first two octets SHALL be zero (the Protocol ID for NTPv4).
+	//
+	// The next two octets SHALL be the Numeric Identifier of the
+	// negotiated AEAD Algorithm in network byte order. Typically
+	// 0x0f for AES-SIV-CMAC-256.
+	//
+	// The final octet SHALL be 0x00 for the C2S key and 0x01 for the
+	// S2C key.
+	s2c_context := []byte("\x00\x00\x00")
+	binary.BigEndian.PutUint16(s2c_context, ke.meta.Algo)
+	s2c_context = append(s2c_context, 0x00)
+
+	c2s_context := []byte("\x00\x00\x00")
+	binary.BigEndian.PutUint16(c2s_context, ke.meta.Algo)
+	c2s_context = append(s2c_context, 0x01)
+
+	var keylength = 32
+	// Get exported keys
+	var err error
+	if ke.meta.C2s_key, err = ke.conn.ComputeExporter(label, c2s_context, keylength); err != nil {
+		return err
+	}
+	if ke.meta.S2c_key, err = ke.conn.ComputeExporter(label, s2c_context, keylength); err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func (ke *KeyExchange) Read() error {
+	var msg Record
 	var critical bool
 
 	for {
@@ -75,18 +146,18 @@ func (ke *KeyExchange) readReply() error {
 		// receive a record with an unrecognized Record Type
 		// MUST ignore the record if the Critical Bit is 0 and
 		// MUST treat it as an error if the Critical Bit is 1.
-		if hasBit(msg.RecType, 15) {
+		if hasBit(msg.Type, 15) {
 			critical = true
 		} else {
 			critical = false
 		}
 
 		// Get rid of Critical bit.
-		msg.RecType &^= (1 << 15)
+		msg.Type &^= (1 << 15)
 		fmt.Println("New message: ")
-		fmt.Printf("  record type: % x\n", msg.RecType)
+		fmt.Printf("  record type: % x\n", msg.Type)
 		fmt.Printf("  body length: % x\n", msg.BodyLen)
-		switch msg.RecType {
+		switch msg.Type {
 		case rec_eom:
 			fmt.Println("  Type: End of message")
 			// Check that we have complete data. It's OK
@@ -158,7 +229,7 @@ func (ke *KeyExchange) readReply() error {
 				return errors.New("buffer overrun")
 			}
 
-			fmt.Printf("  Type: Unknown (% x)", msg.RecType)
+			fmt.Printf("  Type: Unknown (% x)", msg.Type)
 			fmt.Printf("  % x\n", unknownMsg)
 		}
 	}
