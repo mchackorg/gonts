@@ -3,10 +3,8 @@ package main
 // This began it's life as github.com/bifurcation/mint/bin/mint-client
 
 import (
-	"bytes"
 	"encoding/binary"
 	"encoding/json"
-	"errors"
 	"flag"
 	"fmt"
 	"io/ioutil"
@@ -51,113 +49,6 @@ func hasBit(n uint16, pos uint) bool {
 	return (val > 0)
 }
 
-func parseMsg(data []byte) (*Data, error) {
-	var msg Msg
-	var critical bool
-
-	meta := new(Data)
-	buf := bytes.NewReader(data)
-
-	for {
-		err := binary.Read(buf, binary.BigEndian, &msg)
-		if err != nil {
-			fmt.Println("binary.Read failed:", err)
-			return nil, err
-		}
-
-		// C (Critical Bit): Determines the disposition of
-		// unrecognized Record Types. Implementations which
-		// receive a record with an unrecognized Record Type
-		// MUST ignore the record if the Critical Bit is 0 and
-		// MUST treat it as an error if the Critical Bit is 1.
-		if hasBit(msg.RecType, 15) {
-			critical = true
-		} else {
-			critical = false
-		}
-
-		// Get rid of Critical bit.
-		msg.RecType &^= (1 << 15)
-		fmt.Println("New message: ")
-		fmt.Printf("  record type: % x\n", msg.RecType)
-		fmt.Printf("  body length: % x\n", msg.BodyLen)
-		switch msg.RecType {
-		case rec_eom:
-			fmt.Println("  Type: End of message")
-			// Check that we have complete data. It's OK
-			// if we don't fill in meta.Server --- this
-			// means the client should use the same IP
-			// address as the NTS-KE server.
-			if len(meta.Cookie) == 0 || meta.Algo == 0 {
-				return nil, errors.New("incomplete data")
-			}
-
-			return meta, nil
-		case rec_nextproto:
-			fmt.Println("  Type: Next proto")
-			var nextProto uint16
-			err := binary.Read(buf, binary.BigEndian, &nextProto)
-			if err != nil {
-				return nil, errors.New("buffer overrun")
-			}
-			fmt.Printf("next proto: % x\n", nextProto)
-
-		case rec_aead:
-			fmt.Println("  Type: AEAD")
-			var aead uint16
-			err := binary.Read(buf, binary.BigEndian, &aead)
-			if err != nil {
-				return nil, errors.New("buffer overrun")
-			}
-			fmt.Printf(" AEAD: % x\n", aead)
-			meta.Algo = aead
-
-		case rec_cookie:
-			fmt.Println("  Type: Cookie")
-			cookie := make([]byte, msg.BodyLen)
-			err := binary.Read(buf, binary.BigEndian, &cookie)
-			if err != nil {
-				return nil, errors.New("buffer overrun")
-			}
-			fmt.Printf(" Cookie: % x\n", cookie)
-			meta.Cookie = append(meta.Cookie, cookie)
-
-		case rec_ntpserver:
-			fmt.Println("  Type: NTP servers")
-
-			var address [16]byte
-
-			servers := msg.BodyLen / uint16(len(address))
-
-			fmt.Printf(" number of servers: %d\n", servers)
-
-			for i := 0; i < int(servers); i++ {
-				err := binary.Read(buf, binary.BigEndian, &address)
-				if err != nil {
-					return nil, errors.New("buffer overrun")
-				}
-				fmt.Printf("  NTP server address: % x\n", address)
-				meta.Server = append(meta.Server, address)
-			}
-
-		default:
-			if critical {
-				return nil, errors.New("unknown record type with critical bit set")
-			}
-
-			// Swallow unknown record.
-			unknownMsg := make([]byte, msg.BodyLen)
-			err := binary.Read(buf, binary.BigEndian, &unknownMsg)
-			if err != nil {
-				return nil, errors.New("buffer overrun")
-			}
-
-			fmt.Printf("  Type: Unknown (% x)", msg.RecType)
-			fmt.Printf("  % x\n", unknownMsg)
-		}
-	}
-}
-
 func main() {
 	alpn := "ntske/1"
 
@@ -171,55 +62,19 @@ func main() {
 		c.InsecureSkipVerify = true
 	}
 
-	conn, err := mint.Dial("tcp", addr, &c)
+	ke, err := Connect(addr, c)
 	if err != nil {
-		fmt.Println("TLS handshake failed:", err)
+		fmt.Printf("Couldn't connect to %s\n", addr)
 		return
 	}
 
-	state := conn.ConnectionState()
-	if state.NextProto != alpn {
-		panic("server not doing ntske/1")
-	}
-
-	msg := new(bytes.Buffer)
-
-	var rec []uint16 // rectype, bodylen, body
-	// nextproto
-	rec = []uint16{1, 2, 0x00} // NTPv4
-	rec[0] = setBit(rec[0], 15)
-	err = binary.Write(msg, binary.BigEndian, rec)
-
-	// AEAD
-	rec = []uint16{4, 2, 0x0f} // AES-SIV-CMAC-256
-	rec[0] = setBit(rec[0], 15)
-	err = binary.Write(msg, binary.BigEndian, rec)
-
-	// end of message
-	rec = []uint16{0, 0}
-	rec[0] = setBit(rec[0], 15)
-	err = binary.Write(msg, binary.BigEndian, rec)
-
-	fmt.Printf("gonna write:\n% x\n", msg)
-	conn.Write(msg.Bytes())
-
-	var response []byte
-	buffer := make([]byte, 1024)
-	var read int
-	for err == nil {
-		var r int
-		r, err = conn.Read(buffer)
-		read += r
-		response = append(response, buffer...)
-	}
-
-	data, err := parseMsg(response)
+	err = ke.readReply()
 	if err != nil {
 		fmt.Printf("parseMsg error: %v\n", err)
 		return
 	}
 
-	fmt.Printf("data: %v\n", data)
+	fmt.Printf("data: %v\n", ke.meta)
 
 	// 4.2. in https://tools.ietf.org/html/draft-dansarie-nts-00
 	label := "EXPORTER-network-time-security/1"
@@ -236,23 +91,23 @@ func main() {
 	// The final octet SHALL be 0x00 for the C2S key and 0x01 for the
 	// S2C key.
 	s2c_context := []byte("\x00\x00\x00")
-	binary.BigEndian.PutUint16(s2c_context, data.Algo)
+	binary.BigEndian.PutUint16(s2c_context, ke.meta.Algo)
 	s2c_context = append(s2c_context, 0x00)
 
 	c2s_context := []byte("\x00\x00\x00")
-	binary.BigEndian.PutUint16(c2s_context, data.Algo)
+	binary.BigEndian.PutUint16(c2s_context, ke.meta.Algo)
 	c2s_context = append(s2c_context, 0x01)
 
 	var keylength = 32
 	// exported keying materials
-	if data.C2s_key, err = conn.ComputeExporter(label, c2s_context, keylength); err != nil {
+	if ke.meta.C2s_key, err = ke.conn.ComputeExporter(label, c2s_context, keylength); err != nil {
 		panic("bork")
 	}
-	if data.S2c_key, err = conn.ComputeExporter(label, s2c_context, keylength); err != nil {
+	if ke.meta.S2c_key, err = ke.conn.ComputeExporter(label, s2c_context, keylength); err != nil {
 		panic("bork")
 	}
 
-	b, err := json.Marshal(data)
+	b, err := json.Marshal(ke.meta)
 	err = ioutil.WriteFile(datafn, b, 0644)
 	fmt.Printf("Wrote %s\n", datafn)
 }
