@@ -3,12 +3,11 @@ package main
 // This began it's life as github.com/bifurcation/mint/bin/mint-client
 
 import (
+	"crypto/tls"
 	"encoding/json"
 	"flag"
 	"fmt"
 	"io/ioutil"
-
-	"github.com/bifurcation/mint"
 
 	"../ntske"
 )
@@ -24,7 +23,7 @@ func main() {
 	flag.BoolVar(&dontValidate, "dontvalidate", false, "don't validate certs")
 	flag.Parse()
 
-	c := mint.Config{}
+	c := tls.Config{}
 	if dontValidate {
 		c.InsecureSkipVerify = true
 	}
