@@ -3,54 +3,48 @@ package main
 // This began it's life as github.com/bifurcation/mint/bin/mint-server
 
 import (
-	"bytes"
-	"crypto/x509"
-	"encoding/binary"
+	"crypto/tls"
 	"flag"
 	"fmt"
 	"log"
-	"net"
 
-	"github.com/bifurcation/mint"
+	"../ntske"
 )
 
 var port string
 
 func main() {
-	var config mint.Config
-	config.SendSessionTickets = true
-	config.ServerName = "localhost"
-	config.NextProtos = []string{"ntske/1"}
-
-	priv, cert, err := mint.MakeNewSelfSignedCert("localhost", mint.RSA_PKCS1_SHA256)
-	config.Certificates = []*mint.Certificate{
-		{
-			Chain:      []*x509.Certificate{cert},
-			PrivateKey: priv,
-		},
-	}
-	config.Init(false)
-
 	flag.StringVar(&port, "port", "4430", "port")
 	flag.Parse()
 
 	service := "0.0.0.0:" + port
-	listener, err := mint.Listen("tcp", service, &config)
 
+	certs, err := tls.LoadX509KeyPair("server.crt", "server.key")
+	if err != nil {
+		log.Println(err)
+		return
+	}
+
+	config := &tls.Config{
+		ServerName:   "localhost",
+		NextProtos:   []string{"ntske/1"},
+		Certificates: []tls.Certificate{certs},
+	}
+
+	listener, err := tls.Listen("tcp", service, config)
 	if err != nil {
 		log.Fatalf("server: listen: %s", err)
 	}
 	log.Print("server: listening")
 
 	for {
-		conn, err := listener.Accept()
+		ke, err := ntske.NewConnection(listener)
 		if err != nil {
 			log.Printf("server: accept: %s", err)
 			break
 		}
-		defer conn.Close()
-		log.Printf("server: accepted from %s", conn.RemoteAddr())
-		go handleClient(conn)
+
+		go handleClient(ke)
 	}
 }
 
@@ -58,44 +52,30 @@ func setBit(n uint16, pos uint) uint16 {
 	n |= (1 << pos)
 	return n
 }
-func handleClient(conn net.Conn) {
-	defer conn.Close()
 
-	msg := new(bytes.Buffer)
+func handleClient(ke *ntske.KeyExchange) {
+	err := ke.Read()
+	if err != nil {
+		fmt.Printf("Read error: %v\n", err)
+		return
+	}
+	// Check that we have complete data.
 
-	var rec []uint16 // rectype, bodylen, body
-	var octets []uint8
+	ke.ExportKeys()
 
-	// nextproto
-	rec = []uint16{1, 2, 0x00} // NTPv4
-	rec[0] = setBit(rec[0], 15)
-	_ = binary.Write(msg, binary.BigEndian, rec)
+	fmt.Printf("Meta: %#v", ke.Meta)
 
-	// AEAD
-	rec = []uint16{4, 2, 0x0f} // AES-SIV-CMAC-256
-	rec[0] = setBit(rec[0], 15)
-	_ = binary.Write(msg, binary.BigEndian, rec)
+	ke.StartMessage()
+	ke.Algorithm()
 
-	// ntp server
-	rec = []uint16{6, 16} // 1 server addr == 16 bytes
-	rec[0] = setBit(rec[0], 15)
-	_ = binary.Write(msg, binary.BigEndian, rec)
-	octets = []uint8{0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1} // ::1
-	_ = binary.Write(msg, binary.BigEndian, octets)
+	ke.Cookie([]uint8{42}, 1)
 
-	// new cookie
-	rec = []uint16{5, 1}
-	_ = binary.Write(msg, binary.BigEndian, rec)
-	octets = []uint8{42}
-	_ = binary.Write(msg, binary.BigEndian, octets)
+	ke.Write()
 
-	// end of message
-	rec = []uint16{0, 0}
-	rec[0] = setBit(rec[0], 15)
-	_ = binary.Write(msg, binary.BigEndian, rec)
-
-	fmt.Printf("gonna write: % x\n", msg)
-	conn.Write(msg.Bytes())
+	// addr := [16]uint8{0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1} // ::1
+	// var addrs [][16]uint8
+	// addrs[0] = addr
+	// ke.NTPServer(addrs)
 
 	log.Println("server: conn: closed")
 }
