@@ -40,8 +40,9 @@ const (
 	rec_ntpserver = 6
 )
 
+const alpn = "ntske/1"
+
 func Connect(hostport string, config mint.Config) (*KeyExchange, error) {
-	alpn := "ntske/1"
 	config.NextProtos = []string{alpn}
 
 	ke := new(KeyExchange)
