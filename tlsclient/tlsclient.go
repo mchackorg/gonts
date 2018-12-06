@@ -41,13 +41,13 @@ func main() {
 
 	err = ke.Read()
 	if err != nil {
-		fmt.Printf("ReadReply error: %v\n", err)
+		fmt.Printf("Read error: %v\n", err)
 		return
 	}
 
-	fmt.Printf("data: %v\n", ke.Meta)
-
 	ke.ExportKeys()
+
+	fmt.Printf("Negotiated data: %#v\n", ke.Meta)
 
 	b, err := json.Marshal(ke.Meta)
 	err = ioutil.WriteFile(datafn, b, 0644)
