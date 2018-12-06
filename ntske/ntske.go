@@ -1,4 +1,4 @@
-package main
+package ntske
 
 import (
 	"bufio"
@@ -16,7 +16,20 @@ type KeyExchange struct {
 	conn     *mint.Conn
 	reader   *bufio.Reader
 	buf      *bytes.Buffer
-	meta     Data
+	Meta     Data
+}
+
+type Data struct {
+	C2s_key []byte
+	S2c_key []byte
+	Server  [][16]byte
+	Cookie  [][]byte
+	Algo    uint16 // AEAD
+}
+
+type Record struct {
+	Type    uint16
+	BodyLen uint16
 }
 
 const (
@@ -35,7 +48,7 @@ func Connect(hostport string, config mint.Config) (*KeyExchange, error) {
 	ke.hostport = hostport
 	var err error
 
-	ke.conn, err = mint.Dial("tcp", addr, &config)
+	ke.conn, err = mint.Dial("tcp", hostport, &config)
 	if err != nil {
 		fmt.Println("TLS handshake failed:", err)
 		return nil, err
@@ -59,6 +72,40 @@ func (ke *KeyExchange) StartMessage() error {
 	rec[0] = setBit(rec[0], 15)
 
 	return binary.Write(ke.buf, binary.BigEndian, rec)
+}
+
+func (ke *KeyExchange) Server(addr [][16]uint8) error {
+	var rec []uint16 // rectype, bodylen, body
+
+	length := len(addr)
+	rec = []uint16{6, uint16(length)} // 1 server addr == 16 bytes
+	rec[0] = setBit(rec[0], 15)
+	err := binary.Write(ke.buf, binary.BigEndian, rec)
+	if err != nil {
+		return err
+	}
+
+	//octets = []uint8{0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1} // ::1
+	for i := 0; i < length; i += 16 {
+		err := binary.Write(ke.buf, binary.BigEndian, addr[i])
+		if err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
+func (ke *KeyExchange) Cookie(cookie []byte, cookielen int) error {
+	var rec []uint16 // rectype, bodylen, body
+
+	rec = []uint16{5, uint16(cookielen)}
+	err := binary.Write(ke.buf, binary.BigEndian, rec)
+	if err != nil {
+		return err
+	}
+
+	return binary.Write(ke.buf, binary.BigEndian, cookie)
 }
 
 func (ke *KeyExchange) Algorithm() error {
@@ -110,20 +157,20 @@ func (ke *KeyExchange) ExportKeys() error {
 	// The final octet SHALL be 0x00 for the C2S key and 0x01 for the
 	// S2C key.
 	s2c_context := []byte("\x00\x00\x00")
-	binary.BigEndian.PutUint16(s2c_context, ke.meta.Algo)
+	binary.BigEndian.PutUint16(s2c_context, ke.Meta.Algo)
 	s2c_context = append(s2c_context, 0x00)
 
 	c2s_context := []byte("\x00\x00\x00")
-	binary.BigEndian.PutUint16(c2s_context, ke.meta.Algo)
+	binary.BigEndian.PutUint16(c2s_context, ke.Meta.Algo)
 	c2s_context = append(s2c_context, 0x01)
 
 	var keylength = 32
 	// Get exported keys
 	var err error
-	if ke.meta.C2s_key, err = ke.conn.ComputeExporter(label, c2s_context, keylength); err != nil {
+	if ke.Meta.C2s_key, err = ke.conn.ComputeExporter(label, c2s_context, keylength); err != nil {
 		return err
 	}
-	if ke.meta.S2c_key, err = ke.conn.ComputeExporter(label, s2c_context, keylength); err != nil {
+	if ke.Meta.S2c_key, err = ke.conn.ComputeExporter(label, s2c_context, keylength); err != nil {
 		return err
 	}
 
@@ -132,6 +179,7 @@ func (ke *KeyExchange) ExportKeys() error {
 
 func (ke *KeyExchange) Read() error {
 	var msg Record
+
 	var critical bool
 
 	for {
@@ -164,7 +212,7 @@ func (ke *KeyExchange) Read() error {
 			// if we don't fill in meta.Server --- this
 			// means the client should use the same IP
 			// address as the NTS-KE server.
-			if len(ke.meta.Cookie) == 0 || ke.meta.Algo == 0 {
+			if len(ke.Meta.Cookie) == 0 || ke.Meta.Algo == 0 {
 				return errors.New("incomplete data")
 			}
 
@@ -187,7 +235,7 @@ func (ke *KeyExchange) Read() error {
 				return errors.New("buffer overrun")
 			}
 			fmt.Printf(" AEAD: % x\n", aead)
-			ke.meta.Algo = aead
+			ke.Meta.Algo = aead
 
 		case rec_cookie:
 			fmt.Println("  Type: Cookie")
@@ -197,7 +245,7 @@ func (ke *KeyExchange) Read() error {
 				return errors.New("buffer overrun")
 			}
 			fmt.Printf(" Cookie: % x\n", cookie)
-			ke.meta.Cookie = append(ke.meta.Cookie, cookie)
+			ke.Meta.Cookie = append(ke.Meta.Cookie, cookie)
 
 		case rec_ntpserver:
 			fmt.Println("  Type: NTP servers")
@@ -214,7 +262,7 @@ func (ke *KeyExchange) Read() error {
 					return errors.New("buffer overrun")
 				}
 				fmt.Printf("  NTP server address: % x\n", address)
-				ke.meta.Server = append(ke.meta.Server, address)
+				ke.Meta.Server = append(ke.Meta.Server, address)
 			}
 
 		default:
@@ -233,4 +281,14 @@ func (ke *KeyExchange) Read() error {
 			fmt.Printf("  % x\n", unknownMsg)
 		}
 	}
+}
+
+func setBit(n uint16, pos uint) uint16 {
+	n |= (1 << pos)
+	return n
+}
+
+func hasBit(n uint16, pos uint) bool {
+	val := n & (1 << pos)
+	return (val > 0)
 }

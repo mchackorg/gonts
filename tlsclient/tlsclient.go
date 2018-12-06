@@ -9,36 +9,15 @@ import (
 	"io/ioutil"
 
 	"github.com/bifurcation/mint"
+
+	"../ntske"
 )
 
 var addr string
 var dtls bool
 var dontValidate bool
 
-type Record struct {
-	Type    uint16
-	BodyLen uint16
-}
-
-type Data struct {
-	C2s_key []byte
-	S2c_key []byte
-	Server  [][16]byte
-	Cookie  [][]byte
-	Algo    uint16 // AEAD
-}
-
 const datafn = "../ke.json"
-
-func setBit(n uint16, pos uint) uint16 {
-	n |= (1 << pos)
-	return n
-}
-
-func hasBit(n uint16, pos uint) bool {
-	val := n & (1 << pos)
-	return (val > 0)
-}
 
 func main() {
 	flag.StringVar(&addr, "addr", "localhost:4430", "adress:port")
@@ -50,7 +29,7 @@ func main() {
 		c.InsecureSkipVerify = true
 	}
 
-	ke, err := Connect(addr, c)
+	ke, err := ntske.Connect(addr, c)
 	if err != nil {
 		fmt.Printf("Couldn't connect to %s\n", addr)
 		return
@@ -66,11 +45,11 @@ func main() {
 		return
 	}
 
-	fmt.Printf("data: %v\n", ke.meta)
+	fmt.Printf("data: %v\n", ke.Meta)
 
 	ke.ExportKeys()
 
-	b, err := json.Marshal(ke.meta)
+	b, err := json.Marshal(ke.Meta)
 	err = ioutil.WriteFile(datafn, b, 0644)
 	fmt.Printf("Wrote %s\n", datafn)
 }
