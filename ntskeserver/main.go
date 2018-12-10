@@ -1,7 +1,5 @@
 package main
 
-// This began it's life as github.com/bifurcation/mint/bin/mint-server
-
 import (
 	"crypto/tls"
 	"flag"
