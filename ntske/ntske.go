@@ -36,6 +36,8 @@ type Record struct {
 const (
 	rec_eom       = 0
 	rec_nextproto = 1
+	rec_warning   = 2
+	rec_error     = 3
 	rec_aead      = 4
 	rec_cookie    = 5
 	rec_ntpserver = 6
@@ -88,6 +90,7 @@ func Connect(hostport string, config tls.Config) (*KeyExchange, error) {
 	ke.reader = bufio.NewReader(ke.conn)
 
 	state := ke.conn.ConnectionState()
+	fmt.Printf("version: %#v\n", state.Version)
 	if state.NegotiatedProtocol != alpn {
 		return nil, fmt.Errorf("server not speaking ntske/1")
 	}
@@ -98,8 +101,8 @@ func Connect(hostport string, config tls.Config) (*KeyExchange, error) {
 func (ke *KeyExchange) StartMessage() error {
 	ke.buf = new(bytes.Buffer)
 
-	var rec []uint16           // rectype, bodylen, body
-	rec = []uint16{1, 2, 0x00} // NTPv4
+	var rec []uint16                    // rectype, bodylen, body
+	rec = []uint16{rec_nextproto, 2, 0} // 0 is NTPv4
 	rec[0] = setBit(rec[0], 15)
 
 	return binary.Write(ke.buf, binary.BigEndian, rec)
@@ -109,7 +112,7 @@ func (ke *KeyExchange) NTPServer(addr [][16]uint8) error {
 	var rec []uint16 // rectype, bodylen, body
 
 	length := len(addr)
-	rec = []uint16{6, uint16(length)} // 1 server addr == 16 bytes
+	rec = []uint16{rec_ntpserver, uint16(length)} // 1 server addr == 16 bytes
 	rec[0] = setBit(rec[0], 15)
 	err := binary.Write(ke.buf, binary.BigEndian, rec)
 	if err != nil {
@@ -130,13 +133,29 @@ func (ke *KeyExchange) NTPServer(addr [][16]uint8) error {
 func (ke *KeyExchange) Cookie(cookie []byte, cookielen int) error {
 	var rec []uint16 // rectype, bodylen, body
 
-	rec = []uint16{5, uint16(cookielen)}
+	rec = []uint16{rec_cookie, uint16(cookielen)}
 	err := binary.Write(ke.buf, binary.BigEndian, rec)
 	if err != nil {
 		return err
 	}
 
 	return binary.Write(ke.buf, binary.BigEndian, cookie)
+}
+
+func (ke *KeyExchange) Warning(warning uint16) error {
+	var rec []uint16 // rectype, bodylen, body
+
+	rec = []uint16{rec_warning, 2, warning}
+	rec[0] = setBit(rec[0], 15)
+	return binary.Write(ke.buf, binary.BigEndian, rec)
+}
+
+func (ke *KeyExchange) Error(errcode uint16) error {
+	var rec []uint16 // rectype, bodylen, body
+
+	rec = []uint16{rec_error, 2, errcode}
+	rec[0] = setBit(rec[0], 15)
+	return binary.Write(ke.buf, binary.BigEndian, rec)
 }
 
 func (ke *KeyExchange) Algorithm() error {
@@ -148,7 +167,7 @@ func (ke *KeyExchange) Algorithm() error {
 
 	// Server implementations of NTS extension fields for NTPv4 (Section 5)
 	// MUST support AEAD_AES_SIV_CMAC_256 [RFC5297] (Numeric Identifier 15).
-	rec = []uint16{4, 2, AES_SIV_CMAC_256} // AES-SIV-CMAC-256
+	rec = []uint16{rec_aead, 2, AES_SIV_CMAC_256} // AES-SIV-CMAC-256
 	rec[0] = setBit(rec[0], 15)
 
 	return binary.Write(ke.buf, binary.BigEndian, rec)
@@ -160,7 +179,7 @@ func (ke *KeyExchange) Write() error {
 		return fmt.Errorf("No buffer space - start with StartMessage()")
 	}
 
-	rec := []uint16{0, 0}
+	rec := []uint16{rec_eom, 0}
 	rec[0] = setBit(rec[0], 15)
 
 	err := binary.Write(ke.buf, binary.BigEndian, rec)
