@@ -44,6 +44,21 @@ func main() {
 		return
 	}
 
+	// Check that we have complete data. It's OK
+	// if we don't fill in meta.Server --- this
+	// means the client should use the same IP
+	// address as the NTS-KE server.
+
+	if len(ke.Meta.Cookie) == 0 {
+		fmt.Printf("We got no cookie from server!")
+		return
+	}
+
+	if ke.Meta.Algo != ntske.AES_SIV_CMAC_256 {
+		fmt.Printf("We got an algorithm we can't handle.`")
+		return
+	}
+
 	ke.ExportKeys()
 
 	fmt.Printf("Negotiated data: %#v\n", ke.Meta)

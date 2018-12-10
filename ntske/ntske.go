@@ -41,6 +41,10 @@ const (
 	rec_ntpserver = 6
 )
 
+const (
+	AES_SIV_CMAC_256 = 0x0f
+)
+
 const alpn = "ntske/1"
 
 func NewConnection(listener net.Listener) (*KeyExchange, error) {
@@ -144,7 +148,7 @@ func (ke *KeyExchange) Algorithm() error {
 
 	// Server implementations of NTS extension fields for NTPv4 (Section 5)
 	// MUST support AEAD_AES_SIV_CMAC_256 [RFC5297] (Numeric Identifier 15).
-	rec = []uint16{4, 2, 0x0f} // AES-SIV-CMAC-256
+	rec = []uint16{4, 2, AES_SIV_CMAC_256} // AES-SIV-CMAC-256
 	rec[0] = setBit(rec[0], 15)
 
 	return binary.Write(ke.buf, binary.BigEndian, rec)
