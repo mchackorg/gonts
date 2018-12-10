@@ -206,11 +206,11 @@ func (ke *KeyExchange) ExportKeys() error {
 	//
 	// The final octet SHALL be 0x00 for the C2S key and 0x01 for the
 	// S2C key.
-	s2c_context := []byte("\x00\x00\x00")
+	s2c_context := []byte("\x00\x00")
 	binary.BigEndian.PutUint16(s2c_context, ke.Meta.Algo)
 	s2c_context = append(s2c_context, 0x00)
 
-	c2s_context := []byte("\x00\x00\x00")
+	c2s_context := []byte("\x00\x00")
 	binary.BigEndian.PutUint16(c2s_context, ke.Meta.Algo)
 	c2s_context = append(s2c_context, 0x01)
 
