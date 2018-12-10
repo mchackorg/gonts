@@ -146,13 +146,14 @@ func main() {
 			fmt.Println("Error: ", err)
 		}
 
+		xmitMsg.ReceiveTime = toNtpTime(time.Now())
+
 		binary.Read(bytes.NewReader(recbuf), binary.BigEndian, recvMsg)
 		fmt.Printf("recMsg %v\n", recvMsg)
 
 		xmitMsg.OriginTime = recvMsg.TransmitTime
 
-		xmitMsg.ReferenceTime = toNtpTime(time.Now())
-		xmitMsg.TransmitTime = xmitMsg.ReferenceTime
+		xmitMsg.TransmitTime = toNtpTime(time.Now())
 
 		buf := new(bytes.Buffer)
 		err = binary.Write(buf, binary.BigEndian, xmitMsg)
