@@ -1,15 +1,12 @@
 package main
 
-// This began it's life as github.com/bifurcation/mint/bin/mint-client
-
 import (
 	"crypto/tls"
-	"encoding/json"
 	"flag"
 	"fmt"
-	"io/ioutil"
 
 	"../ntske"
+	"github.com/beevik/ntp"
 )
 
 var addr string
@@ -61,9 +58,12 @@ func main() {
 
 	ke.ExportKeys()
 
-	fmt.Printf("Negotiated data: %#v\n", ke.Meta)
+	fmt.Printf("NTS-KE negotiated data: %#v\n", ke.Meta)
 
-	b, err := json.Marshal(ke.Meta)
-	err = ioutil.WriteFile(datafn, b, 0644)
-	fmt.Printf("Wrote %s\n", datafn)
+	ntpTime, err := ntp.Time("localhost")
+	if err != nil {
+		fmt.Println(err)
+	}
+
+	fmt.Printf("Network time: %vx\n", ntpTime)
 }
