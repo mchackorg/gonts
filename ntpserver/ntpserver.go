@@ -152,14 +152,14 @@ func toNtpTime(t time.Time) ntpTime {
 }
 
 func main() {
-	xmitMsg := new(msg)
+	var xmitMsg msg
 	xmitMsg.setMode(server)
 	xmitMsg.setVersion(4)
 	//	xmitMsg.setLeap(LeapNotInSync)
 	xmitMsg.Stratum = 1
 
 	// Allocate a message to hold the response.
-	recvMsg := new(msg)
+	var recvMsg msg
 
 	pc, err := net.ListenPacket("udp", "localhost:123")
 	if err != nil {
@@ -171,19 +171,24 @@ func main() {
 
 	for {
 		_, addr, err := pc.ReadFrom(recbuf)
-		fmt.Printf("Received data from %v: %v\n", addr, recbuf)
 		if err != nil {
 			fmt.Println("Error: ", err)
+			continue
 		}
+
+		reader := bytes.NewReader(recbuf)
 
 		xmitMsg.ReceiveTime = toNtpTime(time.Now())
 
-		binary.Read(bytes.NewReader(recbuf), binary.BigEndian, recvMsg)
-		fmt.Printf("recMsg %v\n", recvMsg)
+		binary.Read(reader, binary.BigEndian, &recvMsg)
+		fmt.Printf("recMsg %#v\n", recvMsg)
 
 		xmitMsg.OriginTime = recvMsg.TransmitTime
 
 		xmitMsg.TransmitTime = toNtpTime(time.Now())
+
+		// Lie that we were just set.
+		xmitMsg.ReferenceTime = xmitMsg.TransmitTime
 
 		buf := new(bytes.Buffer)
 		err = binary.Write(buf, binary.BigEndian, xmitMsg)
@@ -191,7 +196,7 @@ func main() {
 			log.Fatal("Couldn't binary write")
 		}
 
-		fmt.Printf("xmitMsg: %v\n", xmitMsg)
+		fmt.Printf("xmitMsg: %#v\n", xmitMsg)
 
 		pc.WriteTo(buf.Bytes(), addr)
 	}
