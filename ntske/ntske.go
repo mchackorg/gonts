@@ -7,7 +7,6 @@ import (
 	"encoding/binary"
 	"errors"
 	"fmt"
-	"log"
 	"net"
 )
 
@@ -56,8 +55,6 @@ func NewConnection(listener net.Listener) (*KeyExchange, error) {
 		return nil, fmt.Errorf("Couldn't answer`")
 	}
 
-	log.Printf("server: accepted from %s", conn.RemoteAddr())
-
 	var ok bool
 	ke.conn, ok = conn.(*tls.Conn)
 	if !ok {
@@ -83,14 +80,12 @@ func Connect(hostport string, config tls.Config) (*KeyExchange, error) {
 
 	ke.conn, err = tls.Dial("tcp", hostport, &config)
 	if err != nil {
-		fmt.Println("TLS handshake failed:", err)
 		return nil, err
 	}
 
 	ke.reader = bufio.NewReader(ke.conn)
 
 	state := ke.conn.ConnectionState()
-	fmt.Printf("version: %#v\n", state.Version)
 	if state.NegotiatedProtocol != alpn {
 		return nil, fmt.Errorf("server not speaking ntske/1")
 	}
@@ -236,7 +231,6 @@ func (ke *KeyExchange) Read() error {
 	for {
 		err := binary.Read(ke.reader, binary.BigEndian, &msg)
 		if err != nil {
-			fmt.Println("binary.Read failed:", err)
 			return err
 		}
 
@@ -253,12 +247,9 @@ func (ke *KeyExchange) Read() error {
 
 		// Get rid of Critical bit.
 		msg.Type &^= (1 << 15)
-		fmt.Println("New message: ")
-		fmt.Printf("  record type: % x\n", msg.Type)
-		fmt.Printf("  body length: % x\n", msg.BodyLen)
+
 		switch msg.Type {
 		case rec_eom:
-			fmt.Println("  Type: End of message")
 			// Check that we have complete data. It's OK
 			// if we don't fill in meta.Server --- this
 			// means the client should use the same IP
@@ -270,49 +261,40 @@ func (ke *KeyExchange) Read() error {
 			return nil
 
 		case rec_nextproto:
-			fmt.Println("  Type: Next proto")
 			var nextProto uint16
 			err := binary.Read(ke.reader, binary.BigEndian, &nextProto)
 			if err != nil {
 				return errors.New("buffer overrun")
 			}
-			fmt.Printf("next proto: % x\n", nextProto)
 
 		case rec_aead:
-			fmt.Println("  Type: AEAD")
 			var aead uint16
 			err := binary.Read(ke.reader, binary.BigEndian, &aead)
 			if err != nil {
 				return errors.New("buffer overrun")
 			}
-			fmt.Printf(" AEAD: % x\n", aead)
+
 			ke.Meta.Algo = aead
 
 		case rec_cookie:
-			fmt.Println("  Type: Cookie")
 			cookie := make([]byte, msg.BodyLen)
 			err := binary.Read(ke.reader, binary.BigEndian, &cookie)
 			if err != nil {
 				return errors.New("buffer overrun")
 			}
-			fmt.Printf(" Cookie: % x\n", cookie)
+
 			ke.Meta.Cookie = append(ke.Meta.Cookie, cookie)
 
 		case rec_ntpserver:
-			fmt.Println("  Type: NTP servers")
-
 			var address [16]byte
 
 			servers := msg.BodyLen / uint16(len(address))
-
-			fmt.Printf(" number of servers: %d\n", servers)
 
 			for i := 0; i < int(servers); i++ {
 				err := binary.Read(ke.reader, binary.BigEndian, &address)
 				if err != nil {
 					return errors.New("buffer overrun")
 				}
-				fmt.Printf("  NTP server address: % x\n", address)
 				ke.Meta.Server = append(ke.Meta.Server, address)
 			}
 
@@ -327,9 +309,6 @@ func (ke *KeyExchange) Read() error {
 			if err != nil {
 				return errors.New("buffer overrun")
 			}
-
-			fmt.Printf("  Type: Unknown (% x)", msg.Type)
-			fmt.Printf("  % x\n", unknownMsg)
 		}
 	}
 }
