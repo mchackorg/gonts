@@ -4,6 +4,7 @@ import (
 	"crypto/tls"
 	"flag"
 	"fmt"
+	"strings"
 
 	"../ntske"
 	"github.com/beevik/ntp"
@@ -60,7 +61,10 @@ func main() {
 
 	fmt.Printf("NTS-KE negotiated data: %#v\n", ke.Meta)
 
-	ntpTime, err := ntp.Time("localhost")
+	// TODO use the negotiated NTP server in ke.Meta.Server if any
+	addrNoPort := addr[:strings.IndexByte(addr, ':')]
+
+	ntpTime, err := ntp.Time(addrNoPort)
 	if err != nil {
 		fmt.Println(err)
 	}
