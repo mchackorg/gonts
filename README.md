@@ -53,9 +53,9 @@ hackathon that you might want to read.
    the time with the cookie it got from NTS-KE and using the C2S key
    for encrypted fields.
    
-4. The NTP server gets the NTP request, unpacks the cookie and can
-   now reply to the NTP client with the current time, encrypted with
-   the server->client key that was in the cookie (see below).
+4. The NTP server gets the NTP request, unpacks the cookie and can now
+   reply to the NTP client with the current time, encrypted with the
+   S2C key that was in the cookie (see below).
    
    Since all information it needs is contained in the cookie it
    doesn't need to keep any state about the client.
@@ -66,7 +66,7 @@ There are several keys involved here:
 
 2. A session key used in the TLS session.
 
-3. A negotiated pair of keys for later NTP C2S and S2S communication.
+3. A negotiated pair of keys for later NTP C2S and S2C communication.
 
 2. A server-side key used to encrypt cookies.
 
