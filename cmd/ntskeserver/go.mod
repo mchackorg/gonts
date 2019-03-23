@@ -1,3 +1,3 @@
 module ntskeserver
 
-require github.com/mchackorg/gonts v0.0.0-20190323161703-fdb07ee3cd16
+require github.com/mchackorg/gonts/ntske v0.0.0-20190323163203-ba894c6cbe93
