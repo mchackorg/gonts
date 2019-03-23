@@ -6,8 +6,8 @@ import (
 	"fmt"
 	"strings"
 
-	"../ntske"
 	"github.com/beevik/ntp"
+	"github.com/mchackorg/gonts/ntske"
 )
 
 var addr string

@@ -6,7 +6,7 @@ import (
 	"fmt"
 	"log"
 
-	"../ntske"
+	"github.com/mchackorg/gonts/ntske"
 )
 
 var port string
