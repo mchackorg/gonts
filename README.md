@@ -23,6 +23,27 @@ The NTS-KE client has been tested against Martin Langer's server
 implementation on `nts2-e.ostfalia.de` which fortunately for us also
 speaks TLS 1.2 even though the spec explicitly says 1.3.
 
+## Commands
+
+These commands are under `cmd/`:
+
+- ntsclient - An NTP client with NTS support.
+- ntskeserver - A key exchange server for NTS.
+- ntpserver - A silly excuse for an NTP server.
+
+If you just want to run them you can do a 
+
+```
+% go get github.com/mchackorg/gonts/cmd/...
+```
+
+and they should end up in your `$GOPATH/bin/` directory.
+
+## Building
+
+For development purposes there is a simple `Makefile`. `make` should
+build everything.
+
 ## Background
 
 The current project was started in two days during the [102 IETF
