@@ -23,6 +23,7 @@ type Data struct {
 	C2s_key []byte
 	S2c_key []byte
 	Server  [][16]byte
+	Port    uint16
 	Cookie  [][]byte
 	Algo    uint16 // AEAD
 }
@@ -40,6 +41,7 @@ const (
 	rec_aead      = 4
 	rec_cookie    = 5
 	rec_ntpserver = 6
+	rec_ntpport   = 7
 )
 
 const (
@@ -76,6 +78,7 @@ func Connect(hostport string, config tls.Config) (*KeyExchange, error) {
 
 	ke := new(KeyExchange)
 	ke.hostport = hostport
+	ke.Meta.Port = 123 // Default port for NTP
 	var err error
 
 	ke.conn, err = tls.Dial("tcp", hostport, &config)
@@ -298,9 +301,15 @@ func (ke *KeyExchange) Read() error {
 				ke.Meta.Server = append(ke.Meta.Server, address)
 			}
 
+		case rec_ntpport:
+			err := binary.Read(ke.reader, binary.BigEndian, &ke.Meta.Port)
+			if err != nil {
+				return errors.New("buffer overrun")
+			}
+
 		default:
 			if critical {
-				return errors.New("unknown record type with critical bit set")
+				return fmt.Errorf("unknown record type %v with critical bit set", msg.Type)
 			}
 
 			// Swallow unknown record.
