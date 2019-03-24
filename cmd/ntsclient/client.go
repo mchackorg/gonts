@@ -67,6 +67,7 @@ func main() {
 	ntpTime, err := ntp.Time(addrNoPort)
 	if err != nil {
 		fmt.Println(err)
+		return
 	}
 
 	fmt.Printf("Network time: %vx\n", ntpTime)
