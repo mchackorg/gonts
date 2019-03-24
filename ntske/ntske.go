@@ -22,7 +22,7 @@ type KeyExchange struct {
 type Data struct {
 	C2s_key []byte
 	S2c_key []byte
-	Server  [][16]byte
+	Server  string
 	Port    uint16
 	Cookie  [][]byte
 	Algo    uint16 // AEAD
@@ -78,7 +78,9 @@ func Connect(hostport string, config tls.Config) (*KeyExchange, error) {
 
 	ke := new(KeyExchange)
 	ke.hostport = hostport
-	ke.Meta.Port = 123 // Default port for NTP
+	host, _, _ := net.SplitHostPort(hostport)
+	ke.Meta.Server = host // Default to same server for NTP as NTS
+	ke.Meta.Port = 123    // Default port for NTP
 	var err error
 
 	ke.conn, err = tls.Dial("tcp", hostport, &config)
@@ -297,17 +299,13 @@ func (ke *KeyExchange) Read() error {
 			ke.Meta.Cookie = append(ke.Meta.Cookie, cookie)
 
 		case rec_ntpserver:
-			var address [16]byte
+			address := make([]byte, msg.BodyLen)
 
-			servers := msg.BodyLen / uint16(len(address))
-
-			for i := 0; i < int(servers); i++ {
-				err := binary.Read(ke.reader, binary.BigEndian, &address)
-				if err != nil {
-					return errors.New("buffer overrun")
-				}
-				ke.Meta.Server = append(ke.Meta.Server, address)
+			err := binary.Read(ke.reader, binary.BigEndian, &address)
+			if err != nil {
+				return errors.New("buffer overrun")
 			}
+			ke.Meta.Server = string(address)
 
 		case rec_ntpport:
 			err := binary.Read(ke.reader, binary.BigEndian, &ke.Meta.Port)

@@ -6,7 +6,6 @@ import (
 	"flag"
 	"fmt"
 	"io/ioutil"
-	"strings"
 
 	"github.com/beevik/ntp"
 	"github.com/mchackorg/gonts/ntske"
@@ -79,10 +78,7 @@ func main() {
 
 	fmt.Printf("NTS-KE negotiated data: %#v\n", ke.Meta)
 
-	// TODO use the negotiated NTP server in ke.Meta.Server if any
-	addrNoPort := addr[:strings.IndexByte(addr, ':')]
-
-	ntpTime, err := ntp.Time(addrNoPort)
+	ntpTime, err := ntp.QueryWithOptions(ke.Meta.Server, ntp.QueryOptions{Port: int(ke.Meta.Port)})
 	if err != nil {
 		fmt.Println(err)
 		return
