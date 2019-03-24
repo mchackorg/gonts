@@ -131,7 +131,7 @@ func (ke *KeyExchange) NTPServer(addr [][16]uint8) error {
 func (ke *KeyExchange) NTPPort(port uint16) error {
 	var rec []uint16 // rectype, bodylen, body
 
-	rec = []uint16{rec_port, 2, port}
+	rec = []uint16{rec_ntpport, 2, port}
 	rec[0] = setBit(rec[0], 15)
 	return binary.Write(ke.buf, binary.BigEndian, rec)
 }
