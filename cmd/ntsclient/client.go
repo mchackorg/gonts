@@ -28,7 +28,7 @@ func main() {
 
 	ke, err := ntske.Connect(addr, c)
 	if err != nil {
-		fmt.Printf("Couldn't connect to %s\n", addr)
+		fmt.Printf("Couldn't connect to %s (%s)\n", addr, err)
 		return
 	}
 
