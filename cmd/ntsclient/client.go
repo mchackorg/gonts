@@ -2,8 +2,10 @@ package main
 
 import (
 	"crypto/tls"
+	"crypto/x509"
 	"flag"
 	"fmt"
+	"io/ioutil"
 	"strings"
 
 	"github.com/beevik/ntp"
@@ -13,15 +15,31 @@ import (
 var addr string
 var dtls bool
 var dontValidate bool
+var caFile string
 
 const datafn = "../ke.json"
 
 func main() {
 	flag.StringVar(&addr, "addr", "localhost:4430", "adress:port")
 	flag.BoolVar(&dontValidate, "dontvalidate", false, "don't validate certs")
+	flag.StringVar(&caFile, "cafile", "", "Authority Certificates file")
 	flag.Parse()
 
-	c := tls.Config{}
+	certPool := x509.NewCertPool()
+	if caFile == "" {
+		certPool, _ = x509.SystemCertPool()
+	} else {
+		certs, err := ioutil.ReadFile(caFile)
+		if err != nil {
+			fmt.Println("Failed to append %s to certPool: %v", caFile, err)
+		}
+
+		if ok := certPool.AppendCertsFromPEM(certs); !ok {
+			fmt.Println("No certs appended")
+		}
+	}
+
+	c := tls.Config{RootCAs: certPool}
 	if dontValidate {
 		c.InsecureSkipVerify = true
 	}
