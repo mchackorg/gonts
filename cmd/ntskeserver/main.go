@@ -5,6 +5,7 @@ import (
 	"flag"
 	"fmt"
 	"log"
+	"os"
 
 	"github.com/mchackorg/gonts/ntske"
 )
@@ -16,6 +17,8 @@ func main() {
 	flag.Parse()
 
 	service := "0.0.0.0:" + port
+
+	os.Setenv("GODEBUG", os.Getenv("GODEBUG")+",tls13=1")
 
 	certs, err := tls.LoadX509KeyPair("server.crt", "server.key")
 	if err != nil {
