@@ -6,6 +6,7 @@ import (
 	"flag"
 	"fmt"
 	"io/ioutil"
+	"os"
 
 	"github.com/beevik/ntp"
 	"github.com/mchackorg/gonts/ntske"
@@ -23,6 +24,14 @@ func main() {
 	flag.BoolVar(&dontValidate, "dontvalidate", false, "don't validate certs")
 	flag.StringVar(&caFile, "cafile", "", "Authority Certificates file")
 	flag.Parse()
+
+	//	TLS 1.3 is available only on an opt-in basis in Go 1.12. To
+	//	enable it, set the GODEBUG environment variable
+	//	(comma-separated key=value options) such that it includes
+	//	"tls13=1". To enable it from within the process, set the
+	//	environment variable before any use of TLS:
+
+	os.Setenv("GODEBUG", os.Getenv("GODEBUG")+",tls13=1")
 
 	certPool := x509.NewCertPool()
 	if caFile == "" {
