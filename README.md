@@ -6,6 +6,7 @@ This project has been broken into several other projects and
 development continues there:
 
 - [ntske](https://gitlab.com/hacklunch/ntkse) NTS-KE Go package.
+- [ntskeserver](https://gitlab.com/hacklunch/ntkseserver) NTS-KE server.
 - [ntsclient](https://gitlab.com/hacklunc/ntsclient): A simple NTS client.
 - [ntp](https://hack.org/mchackorg/ntp): An NTP and NTS client
   package.
