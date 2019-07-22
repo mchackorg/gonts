@@ -1,5 +1,19 @@
 # Network Time Security in Go
 
+**NOTE WELL!** 
+
+This project has been broken into several other projects and
+development continues there:
+
+- [ntske](https://gitlab.com/hacklunch/ntkse) NTS-KE Go package.
+- [ntsclient](https://gitlab.com/hacklunc/ntsclient): A simple NTS client.
+- [ntp](https://hack.org/mchackorg/ntp): An NTP and NTS client
+  package.
+
+**NOTE WELL!**
+
+## Introduction
+
 Network Time Security (NTS) is a development of the venerable Network
 Time Protocol (NTP). NTS defines a separate Network Time Security Key
 Establishment (NTS-KE) protocol and [uses extension
