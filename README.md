@@ -5,10 +5,10 @@
 This project has been broken into several other projects and
 development continues there:
 
-- [ntske](https://gitlab.com/hacklunch/ntkse) NTS-KE Go package.
-- [ntskeserver](https://gitlab.com/hacklunch/ntkseserver) NTS-KE server.
-- [ntsclient](https://gitlab.com/hacklunc/ntsclient): A simple NTS client.
-- [ntp](https://hack.org/mchackorg/ntp): An NTP and NTS client
+- [ntske](https://gitlab.com/hacklunch/ntske) NTS-KE Go package.
+- [ntskeserver](https://gitlab.com/hacklunch/ntskeserver) NTS-KE server.
+- [ntsclient](https://gitlab.com/hacklunch/ntsclient): A simple NTS client.
+- [ntp](https://gitlab.com/hacklunch/ntp): An NTP and NTS client
   package.
 
 **NOTE WELL!**
@@ -33,10 +33,6 @@ We also provide the beginning of an NTP server but it doesn't yet
 support any NTS extensions and is mostly cobbled together from
 internal structures in [Brett Vickers NTP
 library](https://github.com/beevik/ntp/), but it's a start.
-
-The NTS-KE client has been tested against Martin Langer's server
-implementation on `nts2-e.ostfalia.de` which fortunately for us also
-speaks TLS 1.2 even though the spec explicitly says 1.3.
 
 ## Commands
 
